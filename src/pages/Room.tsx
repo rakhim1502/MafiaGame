@@ -343,7 +343,6 @@ export default function Room() {
   // chat filtering: mafia scope only mafia/don sees
   const visibleMsgs = useMemo(() => {
     if (!room) return [];
-    const phase = room.status;
 
     return msgs.filter((m) => {
       if (m.scope === "mafia") return isMafiaPlayer;
