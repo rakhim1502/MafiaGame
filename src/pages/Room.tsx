@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import type { NavigateFunction } from "react-router-dom";
+const navigate: NavigateFunction = useNavigate();
+navigate("/");
+
 import {
   findRoomByCode,
   listenPlayers,
@@ -65,7 +69,7 @@ export default function Room() {
       const r = await findRoomByCode(code);
       if (!r) {
         alert("Room topilmadi");
-        nav("/");
+        navigate("/");
         return;
       }
 
@@ -98,7 +102,7 @@ export default function Room() {
         localStorage.removeItem(`playerId_${code}`);
         localStorage.removeItem(`roomId_${code}`);
       }
-      nav("/");
+      navigate("/");
     }
   }, [me, nav, code]);
 
@@ -276,7 +280,7 @@ export default function Room() {
   async function onLeave() {
     if (!roomId || !playerId) return;
     await setPlayerConnection(roomId, playerId, false);
-    nav("/");
+    navigate("/");
   }
 
   async function onKick(targetPlayerId: string) {
