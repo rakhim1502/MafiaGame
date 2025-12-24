@@ -40,14 +40,7 @@ export function computeEndsAtMs(durationSec: number) {
   return Date.now() + durationSec * 1000;
 }
 
-export async function setPhaseEnds(roomId: string, durationSec: number) {
-  await updateDoc(doc(db, "rooms", roomId), {
-    phaseEndsAtMs: computeEndsAtMs(durationSec),
-    phaseUpdatedAt: serverTimestamp(),
-  });
-}
-
-// ---------- PLAYER CONNECTION (reconnect/leave) ----------
+// ---------- PLAYER CONNECTION ----------
 export async function setPlayerConnection(roomId: string, playerId: string, isConnected: boolean) {
   await updateDoc(doc(db, "rooms", roomId, "players", playerId), {
     isConnected,
@@ -68,6 +61,48 @@ export async function ensurePlayerExists(roomId: string, playerId: string) {
   const ref = doc(db, "rooms", roomId, "players", playerId);
   const snap = await getDoc(ref);
   return snap.exists();
+}
+
+// ✅ AUTO REJOIN (reconnect)
+// Agar localStorage'da playerId bor-u, doc yo‘q bo‘lsa -> qayta join qilib yangi player yaratadi.
+// nickname/avatar ni localStorage’dan oladi (agar bor bo‘lsa).
+export async function autoRejoinIfNeeded(params: {
+  roomId: string;
+  code: string;
+  nicknameFallback: string;
+  avatarFallback: string;
+}) {
+  const { roomId, code, nicknameFallback, avatarFallback } = params;
+
+  const storedPlayerId = localStorage.getItem(`playerId_${code}`);
+  if (!storedPlayerId) return { playerId: null, didRejoin: false };
+
+  const exists = await ensurePlayerExists(roomId, storedPlayerId);
+  if (exists) {
+    await setPlayerConnection(roomId, storedPlayerId, true);
+    return { playerId: storedPlayerId, didRejoin: false };
+  }
+
+  // doc topilmadi -> qayta join
+  const nick = localStorage.getItem(`nickname_${code}`) || nicknameFallback;
+  const avatar = localStorage.getItem(`avatar_${code}`) || avatarFallback;
+
+  const playerRef = await addDoc(collection(db, "rooms", roomId, "players"), {
+    nickname: nick,
+    avatar,
+    isReady: false,
+    isAlive: true,
+    role: "unknown",
+    isConnected: true,
+    isKicked: false,
+    lastSeenAtMs: Date.now(),
+    createdAt: serverTimestamp(),
+  });
+
+  localStorage.setItem(`playerId_${code}`, playerRef.id);
+  await setPlayerConnection(roomId, playerRef.id, true);
+
+  return { playerId: playerRef.id, didRejoin: true };
 }
 
 // ------- CREATE ROOM -------
@@ -92,6 +127,7 @@ export async function createRoom(nickname: string) {
     isAlive: true,
     role: "unknown",
     isConnected: true,
+    isKicked: false,
     lastSeenAtMs: Date.now(),
     createdAt: serverTimestamp(),
   });
@@ -102,6 +138,8 @@ export async function createRoom(nickname: string) {
 
   localStorage.setItem(`playerId_${code}`, playerRef.id);
   localStorage.setItem(`roomId_${code}`, roomRef.id);
+  localStorage.setItem(`nickname_${code}`, nickname);
+  localStorage.setItem(`avatar_${code}`, "avatar_1");
 
   return { roomId: roomRef.id, code };
 }
@@ -126,12 +164,15 @@ export async function joinRoom(roomId: string, code: string, nickname: string) {
     isAlive: true,
     role: "unknown",
     isConnected: true,
+    isKicked: false,
     lastSeenAtMs: Date.now(),
     createdAt: serverTimestamp(),
   });
 
   localStorage.setItem(`playerId_${code}`, playerRef.id);
   localStorage.setItem(`roomId_${code}`, roomId);
+  localStorage.setItem(`nickname_${code}`, nickname);
+  localStorage.setItem(`avatar_${code}`, "avatar_1");
 }
 
 // ------- REALTIME LISTENERS -------
@@ -155,7 +196,28 @@ export async function updatePlayer(
   playerId: string,
   data: Partial<{ avatar: string; isReady: boolean }>
 ) {
+  // avatar localStorage ham yangilansin (reconnect uchun)
+  if (data.avatar) {
+    // room code bizda yo‘q, shuning uchun Room.tsx’dan saqlaymiz
+  }
   await updateDoc(doc(db, "rooms", roomId, "players", playerId), data);
+}
+
+// ✅ Host kick (faqat host chaqiradi)
+export async function kickPlayer(roomId: string, targetPlayerId: string) {
+  await updateDoc(doc(db, "rooms", roomId, "players", targetPlayerId), {
+    isKicked: true,
+    isConnected: false,
+    kickedAt: serverTimestamp(),
+  });
+}
+
+// ✅ Host remove (lobbyda “soft delete”: player chiqib ketgan kabi)
+export async function removePlayer(roomId: string, targetPlayerId: string) {
+  await updateDoc(doc(db, "rooms", roomId, "players", targetPlayerId), {
+    isConnected: false,
+    leftAt: serverTimestamp(),
+  });
 }
 
 // ------- START GAME (ROLES + PHASE) -------
@@ -202,6 +264,7 @@ export async function startGame(roomId: string, nightDurationSec = 60) {
       role: roles[idx],
       isAlive: true,
       isReady: false,
+      isKicked: false,
     });
   });
 
