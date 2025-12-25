@@ -37,7 +37,6 @@ function isMafiaRole(role: string) {
   return role === "mafia" || role === "don";
 }
 
-/** lightweight modal (built-in) */
 function ResultModal({
   open,
   type,
@@ -91,7 +90,6 @@ function ResultModal({
               </button>
             </div>
 
-            {/* animated banner */}
             <motion.div
               className="mt-4 h-16 rounded-2xl border border-slate-700 bg-slate-800 relative overflow-hidden"
               initial={{ opacity: 0 }}
@@ -137,18 +135,15 @@ export default function Room() {
   const [targetId, setTargetId] = useState<string>("");
   const [nowMs, setNowMs] = useState<number>(Date.now());
 
-  // host settings (UI)
   const [nightSecInput, setNightSecInput] = useState<number>(60);
   const [daySecInput, setDaySecInput] = useState<number>(60);
   const [voteSecInput, setVoteSecInput] = useState<number>(45);
 
-  // chat + events
   const [msgs, setMsgs] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [chatText, setChatText] = useState("");
   const [chatScope, setChatScope] = useState<"lobby" | "public" | "mafia">("lobby");
 
-  // winner modal
   const [resultModal, setResultModal] = useState<{
     open: boolean;
     type: "win" | "lose" | "info";
@@ -156,13 +151,12 @@ export default function Room() {
     subtitle?: string;
   }>({ open: false, type: "info", title: "" });
 
-  // durations used by host auto-advance (read from room.settings if exists)
   const NIGHT_SEC = room?.settings?.nightSec ?? 60;
   const DAY_SEC = room?.settings?.daySec ?? 60;
   const VOTE_SEC = room?.settings?.voteSec ?? 45;
 
   const autoLockRef = useRef<string>("");
-  const winnerLockRef = useRef<string>(""); // prevent modal spam
+  const winnerLockRef = useRef<string>(""); 
 
   const playerId = useMemo(() => {
     if (!code) return null;
@@ -174,7 +168,6 @@ export default function Room() {
     return () => clearInterval(t);
   }, []);
 
-  // load room + listeners
   useEffect(() => {
     if (!code) return;
 
@@ -195,7 +188,6 @@ export default function Room() {
       unsubRoom = listenRoomById(r.roomId, (data) => {
         setRoom(data);
 
-        // settings input init (safe)
         const s = data?.settings;
         if (s) {
           setNightSecInput((prev) => prev || Number(s.nightSec ?? 60));
@@ -216,7 +208,6 @@ export default function Room() {
     };
   }, [code, nav]);
 
-  // listen chat + events
   useEffect(() => {
     if (!roomId) return;
 
@@ -264,7 +255,6 @@ export default function Room() {
     return Math.ceil((ends - nowMs) / 1000);
   }, [room, nowMs]);
 
-  // -------- RECONNECT / ONLINE HEARTBEAT --------
   useEffect(() => {
     if (!roomId || !playerId) return;
 
@@ -295,7 +285,6 @@ export default function Room() {
     };
   }, [roomId, playerId, nav]);
 
-  // -------- TIMER AUTO ADVANCE (host) --------
   useEffect(() => {
     if (!isHost) return;
     if (!roomId) return;
@@ -337,7 +326,6 @@ export default function Room() {
     return () => clearInterval(i);
   }, [isHost, roomId, room, DAY_SEC, VOTE_SEC, NIGHT_SEC]);
 
-  // -------- SHOW WIN/LOSE MODAL (one time) --------
   useEffect(() => {
     if (!room) return;
     if (room.status !== "ended") return;
@@ -346,7 +334,7 @@ export default function Room() {
     if (winnerLockRef.current === key) return;
     winnerLockRef.current = key;
 
-    const winner = room.winner; // "mafia" | "town"
+    const winner = room.winner; 
     const winText = winner === "mafia" ? "MAFIA 😈" : "TOWN 🙂";
 
     const iWin =
@@ -380,7 +368,7 @@ export default function Room() {
     if (!roomId) return;
     if (!allReady) return toast.error("Hamma READY bo‘lsin");
     try {
-      await startGame(roomId); // settings.nightSec ishlaydi
+      await startGame(roomId); 
       setTargetId("");
       autoLockRef.current = "";
       toast.success("Game started 🎮");
@@ -434,7 +422,6 @@ export default function Room() {
     nav("/");
   }
 
-  // private komissar result
   const komissarBox = useMemo(() => {
     if (!isKomissar) return null;
     const res = me?.private?.lastCheckResult;
@@ -463,7 +450,7 @@ export default function Room() {
     return players.find((p) => p.id === id)?.nickname || "Unknown";
   }, [room, players]);
 
-  // online indicator
+
   const onlineSet = useMemo(() => {
     const s = new Set<string>();
     const now = Date.now();
@@ -475,7 +462,6 @@ export default function Room() {
     return s;
   }, [players, nowMs]);
 
-  // chat filtering: mafia scope only mafia/don sees
   const visibleMsgs = useMemo(() => {
     if (!room) return [];
 
@@ -502,7 +488,6 @@ export default function Room() {
         scope: scopeToSend,
       });
       setChatText("");
-      // auto scroll toast optional
     } catch (e: any) {
       toast.error(e?.message || "Chat error");
     }
@@ -558,7 +543,6 @@ export default function Room() {
 
         {/* TOP GRID */}
         <div className="mt-4 grid gap-4 lg:grid-cols-3">
-          {/* LEFT: ROOM / ME / SETTINGS */}
           <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4">
             <p className="text-slate-300 text-sm">Room Code</p>
             <p className="text-3xl font-bold tracking-widest mt-1">{code}</p>
@@ -644,7 +628,6 @@ export default function Room() {
               )}
             </div>
 
-            {/* HOST SETTINGS */}
             {isHost && (
               <div className="mt-5 bg-slate-900 border border-slate-700 rounded-2xl p-3">
                 <p className="font-semibold">Host Settings</p>
@@ -698,7 +681,6 @@ export default function Room() {
 
           {/* MIDDLE: TIMER + PHASE CONTENT */}
           <div className="lg:col-span-2">
-            {/* TIMER BAR */}
             {room?.status === "playing" && room?.phase !== "ended" && timeLeftSec !== null && (
               <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 flex items-center justify-between">
                 <div>
@@ -884,7 +866,6 @@ export default function Room() {
               </div>
             )}
 
-            {/* Vote result */}
             {room?.status === "playing" && room?.vote?.resolved && room?.phase === "night" && (
               <div className="mt-4 bg-slate-800 border border-slate-700 rounded-2xl p-4">
                 <p className="font-semibold">Vote Result</p>
@@ -894,7 +875,6 @@ export default function Room() {
               </div>
             )}
 
-            {/* AVATAR PICKER */}
             <div className="mt-4 bg-slate-800 border border-slate-700 rounded-2xl p-4">
               <p className="font-semibold mb-2">Choose avatar</p>
               <div className="flex flex-wrap gap-2">
@@ -923,9 +903,7 @@ export default function Room() {
           </div>
         </div>
 
-        {/* BOTTOM GRID: PLAYERS + CHAT + EVENTS */}
         <div className="mt-4 grid gap-4 lg:grid-cols-3">
-          {/* PLAYERS */}
           <div className="lg:col-span-2 bg-slate-800 border border-slate-700 rounded-2xl p-4">
             <div className="flex items-center justify-between mb-3">
               <p className="font-semibold">Players</p>
@@ -981,7 +959,6 @@ export default function Room() {
             )}
           </div>
 
-          {/* CHAT + EVENTS */}
           <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4">
             <p className="font-semibold">Chat</p>
 
