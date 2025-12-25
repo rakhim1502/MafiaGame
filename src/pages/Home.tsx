@@ -29,7 +29,6 @@ export default function Home() {
       const room = await findRoomByCode(code.trim());
       if (!room) return alert("Bunaqa room topilmadi");
 
-      // ✅ joinRoom endi (roomId, code, nickname)
       await joinRoom(room.roomId, room.code, nickname.trim());
       nav(`/room/${room.code}`);
     } finally {
